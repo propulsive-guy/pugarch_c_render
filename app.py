@@ -7,7 +7,12 @@ from collections import defaultdict
 from PIL import Image
 import base64
 
-app = Flask(__name__)
+import torch
+from ultralytics.nn.tasks import DetectionModel
+torch.serialization.add_safe_class(DetectionModel)  # allow safe deserialization
+
+model = YOLO(model_path)
+
 
 # Load YOLO model once
 model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
