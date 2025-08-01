@@ -2,3 +2,4 @@ flask
 ultralytics==8.1.25
 Pillow
 numpy
+gunicorn
