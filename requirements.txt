@@ -1,6 +1,4 @@
-streamlit
-ultralytics
-torch
-opencv-python-headless
+flask
+ultralytics==8.1.25
 Pillow
 numpy
