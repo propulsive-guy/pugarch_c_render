@@ -7,16 +7,11 @@ from collections import defaultdict
 from PIL import Image
 import base64
 
-import torch
-from ultralytics.nn.tasks import DetectionModel
-from torch.serialization import safe_load_context
-
 app = Flask(__name__)
 
-# -------------------- Load YOLO model safely --------------------
+# -------------------- Load YOLOv8 model --------------------
 model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
-with safe_load_context(globals={'DetectionModel': DetectionModel}):
-    model = YOLO(model_path)
+model = YOLO(model_path)
 
 # -------------------- Class Mapping & Weights --------------------
 class_mapping = {
@@ -54,9 +49,11 @@ def predict():
         file.save(tmp_file.name)
         image_path = tmp_file.name
 
-    results = model(image_path)[0]
-    class_ids = results.boxes.cls.cpu().numpy().astype(int)
-    confidences = results.boxes.conf.cpu().numpy()
+    results = model(image_path)
+    result = results[0]
+
+    class_ids = result.boxes.cls.cpu().numpy().astype(int)
+    confidences = result.boxes.conf.cpu().numpy()
 
     raw_score = 0
     class_confidence_dict = defaultdict(list)
@@ -79,30 +76,14 @@ def predict():
             "weight": round(normalized_weights[cls_id], 2)
         })
 
-    # Save output image with detections
-    with tempfile.TemporaryDirectory() as pred_dir:
-        model.predict(
-            image_path,
-            save=True,
-            save_txt=False,
-            save_conf=True,
-            project=pred_dir,
-            name="result",
-            exist_ok=True
-        )
-        result_dir = os.path.join(pred_dir, "result")
-        output_image_path = None
-        for file in os.listdir(result_dir):
-            if file.lower().endswith((".jpg", ".png")):
-                output_image_path = os.path.join(result_dir, file)
-                break
+    # Save annotated image
+    annotated_frame = result.plot()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as output_img:
+        from cv2 import imwrite
+        imwrite(output_img.name, annotated_frame)
 
-        # Convert output image to base64
-        if output_image_path:
-            with open(output_image_path, "rb") as img_file:
-                encoded_img = base64.b64encode(img_file.read()).decode('utf-8')
-        else:
-            encoded_img = None
+        with open(output_img.name, "rb") as img_file:
+            encoded_img = base64.b64encode(img_file.read()).decode('utf-8')
 
     return jsonify({
         "cleanliness_score": cleanliness_score,
