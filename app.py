@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from ultralytics import YOLO
 import tempfile
 import os
@@ -9,16 +9,16 @@ import base64
 
 import torch
 from ultralytics.nn.tasks import DetectionModel
-torch.serialization.add_safe_class(DetectionModel)  # allow safe deserialization
+from torch.serialization import safe_load_context
 
-model = YOLO(model_path)
+app = Flask(__name__)
 
-
-# Load YOLO model once
+# -------------------- Load YOLO model safely --------------------
 model_path = os.path.join(os.path.dirname(__file__), 'best.pt')
-model = YOLO(model_path)
+with safe_load_context(globals={'DetectionModel': DetectionModel}):
+    model = YOLO(model_path)
 
-# Class name mapping and weights
+# -------------------- Class Mapping & Weights --------------------
 class_mapping = {
     0: 'fine dust',
     1: 'garbagebag',
@@ -42,7 +42,7 @@ original_weights = {
 total_weight = sum(original_weights.values())
 normalized_weights = {cls: (wt / total_weight * 10) for cls, wt in original_weights.items()}
 
-
+# -------------------- Predict Endpoint --------------------
 @app.route("/predict", methods=["POST"])
 def predict():
     if 'image' not in request.files:
@@ -55,7 +55,6 @@ def predict():
         image_path = tmp_file.name
 
     results = model(image_path)[0]
-
     class_ids = results.boxes.cls.cpu().numpy().astype(int)
     confidences = results.boxes.conf.cpu().numpy()
 
@@ -80,7 +79,7 @@ def predict():
             "weight": round(normalized_weights[cls_id], 2)
         })
 
-    # Save prediction output image
+    # Save output image with detections
     with tempfile.TemporaryDirectory() as pred_dir:
         model.predict(
             image_path,
@@ -98,7 +97,7 @@ def predict():
                 output_image_path = os.path.join(result_dir, file)
                 break
 
-        # Convert to base64 if needed
+        # Convert output image to base64
         if output_image_path:
             with open(output_image_path, "rb") as img_file:
                 encoded_img = base64.b64encode(img_file.read()).decode('utf-8')
@@ -112,11 +111,11 @@ def predict():
         "image_base64": encoded_img
     })
 
-
+# -------------------- Root Endpoint --------------------
 @app.route("/")
 def home():
     return "🧼 Cleanliness Score YOLOv8 API is up and running!"
 
-
+# -------------------- Main Entry --------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
