@@ -1,8 +1,7 @@
-
 Flask==3.1.0
-ultralytics==8.3.27
-torch==2.5.1+cpu
-torchvision==0.20.1+cpu
+ultralytics==8.2.103
+torch==2.3.1
+torchvision==0.18.1
 Pillow==10.4.0
 numpy==1.26.4
 opencv-python-headless==4.10.0.84
