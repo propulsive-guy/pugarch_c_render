@@ -203,13 +203,15 @@ def home():
     })
 
 # -------------------- Initialize Model on Startup --------------------
-@app.before_first_request
-def initialize():
-    """Initialize model when first request is made"""
+def initialize_model():
+    """Initialize model when application starts"""
     logger.info("Initializing model...")
     success = load_model()
     if not success:
         logger.error("Failed to load model on startup")
+
+# Initialize model when module is imported
+initialize_model()
 
 # -------------------- Main Entry --------------------
 if __name__ == "__main__":
